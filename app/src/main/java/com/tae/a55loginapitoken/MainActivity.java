@@ -15,6 +15,10 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
+
+import io.reactivex.Observable;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.schedulers.Schedulers;
 import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -47,52 +51,47 @@ public class MainActivity extends AppCompatActivity {
                 login();
             }
         });
-}
+    }
 
-public void login() {
-    loginString = login.getText().toString();
-    passwordString = password.getText().toString();
-    System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!!"+loginString+"   "+passwordString);
+    public void login() {
+        loginString = login.getText().toString();
+        passwordString = password.getText().toString();
+        System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!!" + loginString + "   " + passwordString);
 
-Login login = new Login(loginString,passwordString);
-    Call <ResponseBody> call = api.login (login);
-    call.enqueue(new Callback<ResponseBody>() {
-        @Override
-        public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
-            if (response.isSuccessful()) {
-                String token = response.headers().get("access-token");
-                PreferenceManager.setAuth(token);
-                Toast.makeText(MainActivity.this, PreferenceManager.getAuth(), Toast.LENGTH_SHORT).show();
-                list();
+        Login login = new Login(loginString, passwordString);
 
-            }
-        }
+        api.login(login).subscribeOn(Schedulers.computation())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(this::handleResultslogin, this::handleError);
 
-        @Override
-        public void onFailure(Call<ResponseBody> call, Throwable t) {
-            Toast.makeText(MainActivity.this, "Error!", Toast.LENGTH_SHORT).show();
-        }
-    });
-}
+    }
+    private void handleResultslogin(Response<ResponseBody> responseBody) {
+    String token = responseBody.headers().get("access-token");
+        PreferenceManager.setAuth(token);
+        Toast.makeText(MainActivity.this, PreferenceManager.getAuth(), Toast.LENGTH_SHORT).show();
+        list();
+    }
+
 
     void list() {
-        Call<List<Pet>> call = api.petList();
-        call.enqueue(new Callback<List<Pet>>() {
-            @Override
-            public void onResponse(Call<List<Pet>> call, Response<List<Pet>> response) {
-                pets = new ArrayList<>();
-                if (response.body()!= null ) {
-                    pets.addAll(response.body());
-                }
-                Intent intent = new Intent(getApplicationContext(), MainActionClass.class);
-            intent.putExtra("start", (Serializable) pets);
-                startActivity(intent);
-            }
+        api.petList()
+                .subscribeOn(Schedulers.computation())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(this::handleResults, this::handleError);
+    }
 
-            @Override
-            public void onFailure(Call<List<Pet>> call, Throwable t) {
-                Toast.makeText(MainActivity.this, "Failure list", Toast.LENGTH_SHORT).show();
-            }
-        });
+    private void handleResults(List<Pet> petsNew) {
+        pets = new ArrayList<>();
+        if (petsNew != null ) {
+            pets.addAll(petsNew);
+        }
+        Intent intent = new Intent(getApplicationContext(), MainActionClass.class);
+        intent.putExtra("start", (Serializable) pets);
+        startActivity(intent);
+    }
+
+
+    private void handleError(Throwable throwable) {
+        Toast.makeText(MainActivity.this, "Failure list", Toast.LENGTH_SHORT).show();
     }
 }
